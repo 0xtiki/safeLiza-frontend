@@ -2,6 +2,8 @@
   "name": "smart-agent-wallet",
   "version": "0.1.0",
   "private": true,
+  "author": "0xtiki",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,10 +12,12 @@
   },
   "dependencies": {
     "base64url": "^3.0.1",
+    "cookie": "^1.0.2",
     "next": "15.2.3",
     "ox": "^0.6.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-json-view": "^1.21.3",
     "viem": "^2.23.13"
   },
   "devDependencies": {

@@ -5,20 +5,23 @@ import { useState } from 'react';
 import { Hex } from 'viem';
 import base64url from 'base64url';
 import { PublicKey } from 'ox';
+import AdminLayout from '@/components/AdminLayout';
+import { useRouter } from 'next/navigation';
 
-type LoginResult = {
-  safes: Record<string, {
-    safeAddress: string;
-    safeLegacyOwners: string[];
-    safeModuleOwners: string[];
-    safeModulePasskey?: string;
-  }>;
-};
+// type LoginResult = {
+//   safes: Record<string, {
+//     safeAddress: string;
+//     safeLegacyOwners: string[];
+//     safeModuleOwners: string[];
+//     safeModulePasskey?: string;
+//   }>;
+// };
 
 export default function Login() {
-  const [loginResult, setLoginResult] = useState<LoginResult | null>(null);
+  // const [loginResult, setLoginResult] = useState<LoginResult | null>(null);
   const [username, setUsername] = useState('');
   const [showSignup, setShowSignup] = useState(false);
+  const router = useRouter();
 
   const handlePasskeyLogin = async () => {
     try {
@@ -72,8 +75,12 @@ export default function Login() {
         throw new Error('Failed to login with passkey');
       }
 
-      const data = await response.json();
-      setLoginResult(data);
+      // const data = await response.json();
+      // setLoginResult(data);
+      
+      // Ensure the response is successful before redirecting
+      console.log('Redirecting to dashboard');
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error logging in with passkey:', error);
     }
@@ -95,13 +102,8 @@ export default function Login() {
         }
       );
       const { user, challenge } = await challengeResponse.json();
-
-      console.log('User:', user);
-      console.log('Challenge:', challenge);
       const decodedChallenge = base64url.decode(challenge, 'hex');
-      console.log('decodedChallenge:', decodedChallenge);
       const bufferChallengeHex = Buffer.from(decodedChallenge, 'hex');
-      // const bufferChallenge = base64url.toBuffer(challenge);
       const arrayBufferChallenge = bufferChallengeHex.buffer.slice(
         bufferChallengeHex.byteOffset,
         bufferChallengeHex.byteOffset + bufferChallengeHex.byteLength
@@ -112,10 +114,6 @@ export default function Login() {
       const credential = await WebAuthnP256.createCredential({ 
         name: username || base64url.decode(user.id),
         challenge: arrayBufferChallenge,
-        // rp: {
-        //   id: 'localhost',
-        //   name: 'Create Next App'
-        // }
       });
 
       console.log('credential:', credential);
@@ -125,16 +123,9 @@ export default function Login() {
 
       // Decode the Uint8Array to a string
       const strClientDataJSON = decoder.decode(credential.raw.response.clientDataJSON);
-      // const strAttestationObject = decoder.decode((credential.raw.response as AuthenticatorAttestationResponse).attestationObject);
 
+      console.log(strClientDataJSON);
 
-      // Now you can parse the JSON string if needed
-      // const jsonObject = JSON.parse(jsonString);
-
-      console.log(strClientDataJSON); // Logs the JSON string
-      // console.log(jsonObject); // L
-
- 
       const publicKey = PublicKey.from(credential.publicKey);
 
       console.log('PUBLIC KEY', publicKey);
@@ -150,12 +141,9 @@ export default function Login() {
           response: {
               clientDataJSON: base64url.encode(
                 strClientDataJSON
-                  // Buffer.from(credential.raw.response.clientDataJSON)
-                  // metadata.clientDataJSON
               ),
               attestationObject: base64url.encode(
                 Buffer.from((credential.raw.response as AuthenticatorAttestationResponse).attestationObject)
-                // strAttestationObject
               ),
           },
           publicKeyHex: PublicKey.toHex(publicKey)
@@ -169,15 +157,18 @@ export default function Login() {
       }
 
       alert('Passkey signup successful!');
+      // hide signup form
+      setShowSignup(false);
     } catch (error) {
       console.error('Error signing up with passkey:', error);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-base-300">
-      <div className="card w-[400px] bg-base-100 shadow-2xl">
-        <div className="card-body">
+    <AdminLayout>
+      <div className="min-h-screen flex items-center justify-center bg-base-300">
+        <div className="card w-[400px] bg-base-100 shadow-2xl">
+          <div className="card-body">
           <h1 className="text-3xl font-bold text-center mb-8">Login to Safe</h1>
           
           <div className="flex flex-col gap-4">
@@ -223,7 +214,7 @@ export default function Login() {
             )}
           </div>
 
-          {loginResult && (
+          {/* {loginResult && (
             <div className="mt-8 pt-8 border-t border-base-300">
               <h2 className="text-xl font-bold mb-4">Your Safes</h2>
               <div className="bg-base-200 p-4 rounded-lg">
@@ -232,9 +223,10 @@ export default function Login() {
                 </pre>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
-    </div>
+    </div>  
+    </AdminLayout>
   );
 } 
