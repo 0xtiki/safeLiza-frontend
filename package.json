@@ -11,6 +11,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@rhinestone/module-sdk": "^0.2.7",
     "base64url": "^3.0.1",
     "cookie": "^1.0.2",
     "next": "15.2.3",
