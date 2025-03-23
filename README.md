@@ -1,7 +1,7 @@
 # Smart Agent Wallet
 
 <p align="center">
-<img src="safeLiza.webp" alt="Safe Liza" width="600" />
+<img src="public/safeLiza.webp" alt="Safe Liza" width="600" />
 </p>
 <p align="center">
 🚀 ✨ <b>Make sure to also check out the backend repo <a href="https://github.com/0xtiki/safeLiza-backend">here</a></b> ✨ 🚀
