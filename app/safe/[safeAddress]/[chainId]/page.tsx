@@ -10,6 +10,13 @@ import { InstalledModules, PolicyConfig, PolicyKey, TokenPolicy } from './Types'
 import { Hex } from 'viem';
 import { sign } from 'ox/WebAuthnP256';
 import { getWebauthnValidatorSignature } from '@rhinestone/module-sdk';
+import { useSessionDetails } from '@/app/hooks/useSessionDetails';
+import dynamic from 'next/dynamic';
+import AddressCopy from '@/components/AddressCopy';
+import SessionAccessControl from '@/components/SessionAccessControl';
+
+// Dynamically import ReactJson
+const ReactJson = dynamic(() => import('react-json-view'), { ssr: false });
 
 // Define types needed for the modal
 type UserOperation = {
@@ -55,10 +62,13 @@ export default function SafePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [signedReceipt, setSignedReceipt] = useState<UserOpReceipt | null>(null);
   
+  // Get session details using our new hook
+  const { sessionConfigs, refreshSessionDetails } = useSessionDetails(safeAddress, chainId);
+  
   // Get the passkey ID from the smart session
   const passkeyId = smartSession && safeAddress ? smartSession[safeAddress as Hex]?.passkeyId : undefined;
   
-  // Mock transaction data for the modal
+  // Transaction data for the modal
   const [transactionData, setTransactionData] = useState<{
     userOperation: UserOperation;
     userOpHashToSign: string;
@@ -239,7 +249,12 @@ export default function SafePage() {
   const handleSignSuccess = (receipt: UserOpReceipt) => {
     setSignedReceipt(receipt);
     console.log('Session successfully signed:', receipt);
-    // Additional actions after successful signing
+    
+    // Reset smartSession to show Configure button again
+    setSmartSession(null);
+    
+    // Refresh session details to show the new configuration
+    refreshSessionDetails();
   };
 
   return (
@@ -298,6 +313,68 @@ export default function SafePage() {
               </div>
             </div>
           </div>
+          
+          {/* Display session details */}
+          {sessionConfigs.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-xl font-bold mb-2">Active Session Configurations</h3>
+              
+              {sessionConfigs.map((config, index) => {
+                // Get the active state directly from the config
+                const isEndpointActive = config.endpoint?.active || false;
+                
+                return (
+                  <div 
+                    key={config.permissionId || index} 
+                    className={`p-4 rounded-box mb-4 ${
+                      isEndpointActive ? 'bg-success bg-opacity-20' : 'bg-base-200'
+                    }`}
+                  >
+                    <AddressCopy value={config.sessionKey} label="Session Key" />
+                    <AddressCopy value={config.permissionId} label="Permission ID" />
+                    <AddressCopy value={config.permissionEnableHash} label="Permission Enable Hash" />
+                    
+                    <div className="mt-4">
+                      <h4 className="font-bold">Session Details:</h4>
+                      {config.sessionDetails && (
+                        <ReactJson
+                          src={JSON.parse(config.sessionDetails)}
+                          theme="bright:inverted"
+                          name="Configuration"
+                          style={{ 
+                            backgroundColor: 'transparent',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            maxWidth: '100%',
+                          }}
+                          collapsed={true}
+                          displayDataTypes={false}
+                          displayObjectSize={false}
+                          enableClipboard={false}
+                          sortKeys
+                        />
+                      )}
+                    </div>
+                    
+                    <SessionAccessControl
+                      sessionId={config.permissionId}
+                      safeAddress={safeAddress}
+                      chainId={chainId}
+                      initialActive={isEndpointActive}
+                      url={config.endpoint?.url || ''}
+                      onToggleSuccess={refreshSessionDetails}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {sessionConfigs.length === 0 && !loading && (
+            <div className="mt-6 p-4 bg-base-200 rounded-box">
+              <p>No active session configurations found.</p>
+            </div>
+          )}
           
           {signedReceipt && (
             <div className="mt-4 p-4 bg-success text-success-content rounded-box">
