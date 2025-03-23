@@ -1,10 +1,30 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { sign } from 'ox/WebAuthnP256';
-import { getWebauthnValidatorSignature } from '@rhinestone/module-sdk';
+import SigningMethodModal from './SigningMethodModal';
 
 // Dynamically import ReactJson
 const ReactJson = dynamic(() => import('react-json-view'), { ssr: false });
+
+type UserOpReceipt = {
+  transactionHash: string;
+  userOpHash: string;
+  success: boolean;
+  // Add other properties that might be in the receipt
+};
+
+type UserOperation = {
+  sender: string;
+  nonce: string;
+  initCode: string;
+  callData: string;
+  callGasLimit: string;
+  verificationGasLimit: string;
+  preVerificationGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  paymasterAndData: string;
+  signature: string;
+};
 
 type Props = {
   safeAddress: string;
@@ -17,16 +37,13 @@ type Props = {
 export default function CreateTransactionButton({ safeAddress, chainId, passkeyId, safeLegacyOwners, safeModuleOwners }: Props) {
   const [isCreatingTransaction, setIsCreatingTransaction] = useState(false);
   const [transactionData, setTransactionData] = useState<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    userOperation: any;
+    userOperation: UserOperation;
     userOpHashToSign: string;
   } | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUserOpSigned, setIsUserOpSigned] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [signedUserOpReceipt, setSignedUserOpReceipt] = useState<any>(null);
-  const [isExecutingUserOp, setIsExecutingUserOp] = useState(false);
+  const [signedUserOpReceipt, setSignedUserOpReceipt] = useState<UserOpReceipt | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -90,71 +107,9 @@ export default function CreateTransactionButton({ safeAddress, chainId, passkeyI
     setIsModalOpen(true);
   };
 
-  const handleSignWithPasskey = async () => {
-    try {
-      setIsExecutingUserOp(true);
-
-      const { metadata: webauthn, signature } = await sign({
-        credentialId: passkeyId,
-        challenge: transactionData?.userOpHashToSign as `0x${string}`,
-      });
-      console.log('Signing with passkey');
-      console.log('Webauthn:', webauthn);
-      console.log('Signature:', signature);
-
-      const encodedSignature = getWebauthnValidatorSignature({
-        webauthn,
-        signature,
-        usePrecompiled: false,
-      });
-       
-    //   if (transactionData) {
-    //     transactionData.userOperation.signature = encodedSignature;
-    //   }
-
-      console.log('Transaction data:', transactionData);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/safe/execute-signed-passkey-user-operation`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ encodedSignature, userOpHashToSign: transactionData?.userOpHashToSign, safeAddress, chainId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to execute user op');
-      }
-
-      const data = await response.json();
-      console.log('User op executed:', data);
-      setIsUserOpSigned(true);
-      setSignedUserOpReceipt(data);
-      setIsModalOpen(false);
-    } catch (error) {
-      console.error('Error signing with passkey:', error);
-    } finally {
-      setIsExecutingUserOp(false);
-    }
-  };
-
-  const handleSignWithLegacyOwner = async (ownerAddress: string) => {
-    try {
-      // TODO: Implement signing with legacy owner
-      console.log('Signing with legacy owner:', ownerAddress);
-    } catch (error) {
-      console.error('Error signing with legacy owner:', error);
-    }
-  };
-
-  const handleSignWithModuleOwner = async (ownerAddress: string) => {
-    try {
-      // TODO: Implement signing with module owner
-      console.log('Signing with module owner:', ownerAddress);
-    } catch (error) {
-      console.error('Error signing with module owner:', error);
-    }
+  const handleSignSuccess = (receipt: UserOpReceipt) => {
+    setIsUserOpSigned(true);
+    setSignedUserOpReceipt(receipt);
   };
 
   return (
@@ -227,66 +182,17 @@ export default function CreateTransactionButton({ safeAddress, chainId, passkeyI
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box">
-            <h3 className="font-bold text-lg">Select Signing Method</h3>
-            {passkeyId && (
-              <div className="mt-4">
-                <button
-                  className="btn btn-primary btn-sm normal-case font-bold"
-                  onClick={handleSignWithPasskey}
-                  disabled={isExecutingUserOp}
-                >
-                  {isExecutingUserOp ? (
-                    <span className="loading loading-spinner"></span>
-                  ) : (
-                    'Sign with Passkey'
-                  )}
-                </button>
-              </div>
-            )}
-            {safeLegacyOwners.length > 0 && (
-              <div className="mt-4">
-                {/* <h4 className="font-bold">Legacy Owners</h4> */}
-                {safeLegacyOwners
-                  .filter((ownerAddress) => ownerAddress !== '0x5380c7b7Ae81A58eb98D9c78de4a1FD7fd9535FC')
-                  .map((ownerAddress) => (
-                    <div key={ownerAddress} className="mt-2">
-                      <button
-                        className="btn btn-primary btn-sm normal-case font-bold"
-                        onClick={() => handleSignWithLegacyOwner(ownerAddress)}
-                      >
-                        Sign with {ownerAddress}
-                      </button>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-            {safeModuleOwners && safeModuleOwners.length > 0 && (
-              <div className="mt-4">
-                <h4 className="font-bold">Module Owners</h4>
-                {safeModuleOwners.map((ownerAddress) => (
-                  <div key={ownerAddress} className="mt-2">
-                    <button
-                      className="btn btn-primary btn-sm normal-case font-bold"
-                      onClick={() => handleSignWithModuleOwner(ownerAddress)}
-                    >
-                      Sign with {ownerAddress}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="modal-action">
-              <button className="btn" onClick={() => setIsModalOpen(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SigningMethodModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        passkeyId={passkeyId}
+        safeLegacyOwners={safeLegacyOwners}
+        safeModuleOwners={safeModuleOwners}
+        transactionData={transactionData}
+        safeAddress={safeAddress}
+        chainId={chainId}
+        onSignSuccess={handleSignSuccess}
+      />
     </div>
   );
 } 

@@ -1,31 +1,61 @@
 import React, { useState } from 'react';
-import SpendingLimitsPolicy from './SpendingLimitsPolicy';
-import TimeFramePolicy from './TimeFramePolicy';
-import UsageLimitPolicy from './UsageLimitPolicy';
-import ValueLimitPolicy from './ValueLimitPolicy';
-import SudoPolicy from './SudoPolicy';
+import SpendingLimitsPolicy, { TOOLTIP_TEXT as SPENDING_LIMITS_TOOLTIP } from './SpendingLimitsPolicy';
+import TimeFramePolicy, { TOOLTIP_TEXT as TIME_FRAME_TOOLTIP } from './TimeFramePolicy';
+import UniversalActionPolicy, { TOOLTIP_TEXT as UNIVERSAL_ACTION_TOOLTIP } from './UniversalActionPolicy';
+import ValueLimitPolicy, { TOOLTIP_TEXT as VALUE_LIMIT_TOOLTIP } from './ValueLimitPolicy';
+import SudoPolicy, { TOOLTIP_TEXT as SUDO_TOOLTIP } from './SudoPolicy';
 
 type PolicyConfig = {
-  spendingLimitsPolicy: { limit: number; active: boolean };
+  spendingLimitsPolicy: { 
+    limit: number; 
+    active: boolean; 
+    tokenAddress: string;
+    tokenPolicies: Array<{
+      tokenAddress: string;
+      tokenSymbol: string;
+      tokenName: string;
+      tokenDecimals: string;
+      limit: number;
+    }>;
+  };
   timeFramePolicy: { startTime: string; endTime: string; active: boolean };
-  usageLimitPolicy: { usageCount: number; active: boolean };
+  universalActionPolicy: { usageCount: number; active: boolean };
   valueLimitPolicy: { valueLimit: number; active: boolean };
   sudoPolicy: { active: boolean };
 };
 
 type PolicyKey = keyof PolicyConfig;
 
-type Props = {
-  policyConfigs: PolicyConfig;
-  handlePolicyConfigChange: (policy: PolicyKey, field: string, value: string | number | boolean) => void;
+type TokenPolicy = {
+  tokenAddress: string;
+  tokenSymbol: string;
+  tokenName: string;
+  tokenDecimals: string;
+  limit: number;
 };
 
-const PolicyConfiguration: React.FC<Props> = ({ policyConfigs, handlePolicyConfigChange }) => {
+type Props = {
+  policyConfigs: PolicyConfig;
+  handlePolicyConfigChange: (policy: PolicyKey, field: string, value: string | number | boolean | Array<TokenPolicy>) => void;
+  safeAddress: string;
+  chainId: number;
+};
+
+const PolicyConfiguration: React.FC<Props> = ({ policyConfigs, handlePolicyConfigChange, safeAddress, chainId }) => {
   const [isSudoPolicySelected, setIsSudoPolicySelected] = useState(false);
 
   const handleSudoPolicyChange = (value: boolean) => {
     setIsSudoPolicySelected(value);
     handlePolicyConfigChange('sudoPolicy', 'active', value);
+  };
+
+  // User-friendly policy names mapping
+  const policyLabels: Record<string, string> = {
+    'sudoPolicy': 'Full Access (Admin Mode)',
+    'spendingLimitsPolicy': 'Token Spending Limit',
+    'timeFramePolicy': 'Time Window Restriction',
+    'universalActionPolicy': 'Contract Interaction Control',
+    'valueLimitPolicy': 'ETH Spending Limit'
   };
 
   return (
@@ -38,7 +68,10 @@ const PolicyConfiguration: React.FC<Props> = ({ policyConfigs, handlePolicyConfi
             onChange={(e) => handleSudoPolicyChange(e.target.checked)}
             className="checkbox mr-2"
           />
-          <span className="label-text">sudoPolicy</span>
+          <span className="label-text font-medium">{policyLabels['sudoPolicy']}</span>
+          <div className="tooltip ml-2" data-tip={SUDO_TOOLTIP}>
+            <span className="text-base-content/60 cursor-help">ⓘ</span>
+          </div>
         </label>
         {isSudoPolicySelected && (
           <SudoPolicy
@@ -49,7 +82,7 @@ const PolicyConfiguration: React.FC<Props> = ({ policyConfigs, handlePolicyConfi
       </div>
       {!isSudoPolicySelected && (
         <>
-          {['spendingLimitsPolicy', 'timeFramePolicy', 'usageLimitPolicy', 'valueLimitPolicy'].map((policy) => (
+          {['valueLimitPolicy', 'spendingLimitsPolicy', 'timeFramePolicy', 'universalActionPolicy'].map((policy) => (
             <div key={policy} className="form-control">
               <label className="label cursor-pointer flex items-center">
                 <input
@@ -57,16 +90,56 @@ const PolicyConfiguration: React.FC<Props> = ({ policyConfigs, handlePolicyConfi
                   checked={policyConfigs[policy as PolicyKey].active}
                   onChange={(e) => handlePolicyConfigChange(policy as PolicyKey, 'active', e.target.checked)}
                   className="checkbox mr-2"
+                  disabled={policy === 'universalActionPolicy'}
                 />
-                <span className="label-text">{policy}</span>
+                <span className="label-text font-medium">{policyLabels[policy]}</span>
+                {policy === 'valueLimitPolicy' && (
+                  <div className="tooltip ml-2" data-tip={VALUE_LIMIT_TOOLTIP}>
+                    <span className="text-base-content/60 cursor-help">ⓘ</span>
+                  </div>
+                )}
+                {policy === 'spendingLimitsPolicy' && (
+                  <div className="tooltip ml-2" data-tip={SPENDING_LIMITS_TOOLTIP}>
+                    <span className="text-base-content/60 cursor-help">ⓘ</span>
+                  </div>
+                )}
+                {policy === 'timeFramePolicy' && (
+                  <div className="tooltip ml-2" data-tip={TIME_FRAME_TOOLTIP}>
+                    <span className="text-base-content/60 cursor-help">ⓘ</span>
+                  </div>
+                )}
+                {policy === 'universalActionPolicy' && (
+                  <div className="tooltip ml-2" data-tip={UNIVERSAL_ACTION_TOOLTIP}>
+                    <span className="text-base-content/60 cursor-help">ⓘ</span>
+                  </div>
+                )}
               </label>
               {policyConfigs[policy as PolicyKey].active && (
                 <>
+                  {policy === 'valueLimitPolicy' && (
+                    <ValueLimitPolicy
+                      valueLimit={policyConfigs.valueLimitPolicy.valueLimit}
+                      onChange={(value) => handlePolicyConfigChange('valueLimitPolicy', 'valueLimit', value)}
+                    />
+                  )}
                   {policy === 'spendingLimitsPolicy' && (
                     <SpendingLimitsPolicy
                       value={policyConfigs.spendingLimitsPolicy.limit}
-                      // active={policyConfigs.spendingLimitsPolicy.active}
                       onChange={(value) => handlePolicyConfigChange('spendingLimitsPolicy', 'limit', value)}
+                      safeAddress={safeAddress}
+                      chainId={chainId}
+                      onTokenSelect={(tokenAddress) => handlePolicyConfigChange('spendingLimitsPolicy', 'tokenAddress', tokenAddress)}
+                      tokenPolicies={policyConfigs.spendingLimitsPolicy.tokenPolicies}
+                      onAddTokenPolicy={(policy) => {
+                        const updatedPolicies = [...policyConfigs.spendingLimitsPolicy.tokenPolicies, policy];
+                        handlePolicyConfigChange('spendingLimitsPolicy', 'tokenPolicies', updatedPolicies);
+                      }}
+                      onRemoveTokenPolicy={(tokenAddress) => {
+                        const updatedPolicies = policyConfigs.spendingLimitsPolicy.tokenPolicies.filter(
+                          p => p.tokenAddress !== tokenAddress
+                        );
+                        handlePolicyConfigChange('spendingLimitsPolicy', 'tokenPolicies', updatedPolicies);
+                      }}
                     />
                   )}
                   {policy === 'timeFramePolicy' && (
@@ -76,16 +149,11 @@ const PolicyConfiguration: React.FC<Props> = ({ policyConfigs, handlePolicyConfi
                       onChange={(field, value) => handlePolicyConfigChange('timeFramePolicy', field, value)}
                     />
                   )}
-                  {policy === 'usageLimitPolicy' && (
-                    <UsageLimitPolicy
-                      usageCount={policyConfigs.usageLimitPolicy.usageCount}
-                      onChange={(value) => handlePolicyConfigChange('usageLimitPolicy', 'usageCount', value)}
-                    />
-                  )}
-                  {policy === 'valueLimitPolicy' && (
-                    <ValueLimitPolicy
-                      valueLimit={policyConfigs.valueLimitPolicy.valueLimit}
-                      onChange={(value) => handlePolicyConfigChange('valueLimitPolicy', 'valueLimit', value)}
+                  {policy === 'universalActionPolicy' && (
+                    <UniversalActionPolicy
+                      usageCount={policyConfigs.universalActionPolicy.usageCount}
+                      onChange={(value) => handlePolicyConfigChange('universalActionPolicy', 'usageCount', value)}
+                      disabled={true}
                     />
                   )}
                 </>

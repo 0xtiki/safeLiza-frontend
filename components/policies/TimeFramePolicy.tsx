@@ -6,6 +6,9 @@ type Props = {
   onChange: (field: string, value: string) => void;
 };
 
+// Static tooltip text
+export const TOOLTIP_TEXT = "Limits session activity to a specific time window. Transactions can only be executed between the start and end times.";
+
 const TimeFramePolicy: React.FC<Props> = ({ startTime, endTime, onChange }) => (
   <div className="mt-2">
     <label className="label">

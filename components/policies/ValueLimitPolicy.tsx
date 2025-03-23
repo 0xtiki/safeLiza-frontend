@@ -5,6 +5,9 @@ type Props = {
   onChange: (value: number) => void;
 };
 
+// Static tooltip text
+export const TOOLTIP_TEXT = "Sets a ETH spending limit. Once the limit is reached all subsequent transactions will be reverted.";
+
 const ValueLimitPolicy: React.FC<Props> = ({ valueLimit, onChange }) => (
   <div className="mt-2">
     <label className="label">
@@ -13,7 +16,7 @@ const ValueLimitPolicy: React.FC<Props> = ({ valueLimit, onChange }) => (
     <input
       type="number"
       value={valueLimit}
-      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+      onChange={(e) => onChange(parseFloat((e.target.value)) || 0)}
       className="input input-bordered"
     />
   </div>
